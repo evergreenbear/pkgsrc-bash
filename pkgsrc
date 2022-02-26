@@ -1,0 +1,151 @@
+#!/bin/bash
+
+usage() {
+cat <<- ENDUSAGE
+Usage:
+in  | Install a package
+rm  | Remove a package
+fd  | Search for a package
+up  | Update packages
+ver | Check version
+ENDUSAGE
+}
+
+getargs() {
+    local Action
+    Action="$1"  
+    shift
+    if [[ -z "$Action" ]]; then
+        echo "Please enter a parameter."
+        usage
+	return 1
+    fi
+
+    case "$Action" in
+       "in")
+            install "$@"
+          ;;
+
+        "rm")
+            remove "$@"
+        ;;
+
+	"up")
+	    update "$@"
+	;;
+
+        "fd")
+	    locate "$@"
+        ;;
+
+	"ver")
+	    version "$@"
+	;;
+
+	*)
+            echo "Unknown parameter $Action"
+            ;;
+    esac
+    return
+}
+
+install() {
+    local -a pkgs;
+    for locate in "$@"; do
+        readarray -t tmpfound <<<"$(find /pkgsrc -type d -name "$locate")";
+        if [[ -n "${tmpfound[0]}" ]]; then
+            for idx in "${!tmpfound[@]}"; do
+                pkgs+=( "${tmpfound[idx]}" );
+            done;
+	else
+	    echo "Couldn't find package $locate"
+	    exit 1;
+        fi
+    done;
+    
+    echo "Found these packages: " "${pkgs[@]}";
+    read -r -p "Go ahead and install them? " confirm;
+    case "$confirm" in
+        "y" | "Y" | "yes" | "Yes" | "")
+                for toinstall in "${pkgs[@]}"; do
+                    cd "$toinstall" || exit
+                    bmake install clean
+                done
+        ;;
+        "n" | "N" | "no" | "No")
+            echo "Transaction cancelled.";
+            exit 1;
+        ;;
+    esac
+
+}
+
+locate () { 
+    local -a pkgs;
+    for locate in "$@"; do
+        readarray -t tmpfound <<<"$(find /pkgsrc -type d -name "$locate")";
+        if [[ -n "${tmpfound[0]}" ]]; then
+	    for found in "${tmpfound[@]}"; do
+	        pkgs+=( "$found" );
+	    done;
+	else
+	    echo "Couldn't find any packages matching '$locate'"
+	    exit 1;
+        fi
+    done
+
+    echo "Found these matching packages: " "${pkgs[@]}";
+}
+
+remove() {
+    local -a pkgs;
+    local -a loc
+    for locate in "$@"; do
+	readarray -t tmpfound <<<"$(which "$locate")"
+	if [[ -n "${tmpfound[0]}" ]]; then
+	    for found in "${tmpfound[@]}"; do
+		pkgs+=( "$found" );
+	    done
+	 fi   
+    done
+    echo "Removing package $locate..."
+    read -r -p "Go ahead and remove them? " confirm;
+    case "$confirm" in
+        "y" | "Y" | "yes" | "Yes")
+            if pkg_delete -vDR "$locate"; then
+	        echo "Removed $locate."
+	    else
+	        echo "Couldn't remove $locate! See the above error and ensure your PATH is correct."
+	    fi
+	;;
+
+	*)
+	    echo "Transaction cancelled."
+	;;
+
+    esac
+}
+
+update() {
+    local -a pkgs;
+    if [[ -z "$1" ]]; then
+	pkg_chk -u
+    else
+        echo "Updating individual packages is risky, and is unsupported by this fronted."
+    fi
+}
+
+version() {
+cat << ENDVER
+pkgsrc, a (shitty) bash frontend for pkgsrc
+version 1.0
+
+made by EnokiPPT on github	
+ENDVER
+}
+
+main() {
+    getargs "$@"
+}
+
+main "$@"
