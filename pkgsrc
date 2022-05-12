@@ -140,7 +140,7 @@ cat << ENDVER
 pkgsrc, a (shitty) bash frontend for pkgsrc
 version 1.0
 
-made by EnokiPPT on github	
+made by @fishe-tm on github	
 ENDVER
 }
 
